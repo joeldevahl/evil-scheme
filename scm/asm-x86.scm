@@ -1,4 +1,4 @@
-#lang scheme
+(require racket/port)
 
 ;; Base definition of registers
 (define (r0) 0)
@@ -97,25 +97,17 @@
 (define tr4 r7)
 
 (define (byte b)
-  (display b))
+  (write-byte b))
 (define (op b)
-  (byte b)
-  (newline))
+  (byte b))
 (define (op2 b)
   (byte #x0F)
-  (display " ")
-  (byte b)
-  (newline))
+  (byte b))
 (define (word w)
   (byte (bitwise-and w #xFF))
-  (display " ")
   (byte (quotient (bitwise-and w #xFF00) #x100))
-  (display " ")
   (byte (quotient (bitwise-and w #xFF0000) #x10000))
-  (display " ")
-  (byte (quotient (bitwise-and w #xFF000000) #x1000000))
-  (newline))
-		 
+  (byte (quotient (bitwise-and w #xFF000000) #x1000000)))
 
 (define reg? procedure?)
 
@@ -123,10 +115,11 @@
   (cond
 	((and (reg? dst)
 		  (reg? src))
+	 (op #xF00))
 
 	((and (reg? dst)
 		  (number? src))
-	 (op #xB8)
+	 (op (+ #xB8 (dst)))
 	 (word src))
 	(else (error "mov called with wrong arguments:" src dst))))
 
@@ -147,8 +140,9 @@
 	((number? (car x)) (op #xC2))
 	(else (error "ret called with wrong arguments:" x))))
 
-(push ebp)
-(mov eax 42)
-;(mov ebp esp)
-;(leave)
-(retn)
+(with-output-to-file "test.image" (lambda ()
+  (push ebp)
+  (mov eax 42)
+  ;(mov ebp esp)
+  ;(leave)
+  (retn)))
