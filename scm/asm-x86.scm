@@ -96,26 +96,28 @@
 (define tr3 r6)
 (define tr4 r7)
 
-(define (byte b)
-  (write-byte b))
 (define (op b)
   (byte b))
 (define (op2 b)
   (byte #x0F)
   (byte b))
-(define (word w)
-  (byte (bitwise-and w #xFF))
-  (byte (quotient (bitwise-and w #xFF00) #x100))
-  (byte (quotient (bitwise-and w #xFF0000) #x10000))
-  (byte (quotient (bitwise-and w #xFF000000) #x1000000)))
 
 (define reg? procedure?)
+
+(define (modrm mod reg rm)
+  (byte (+ (arithmetic-shift mod 6)
+		   (arithmetic-shift reg 3)
+		   rm)))
+
+(define (leave)
+  (op #xC9))
 
 (define (mov dst src)
   (cond
 	((and (reg? dst)
 		  (reg? src))
-	 (op #xF00))
+	 (op #x89)
+	 (modrm #x3 (src) (dst)))
 
 	((and (reg? dst)
 		  (number? src))
@@ -125,24 +127,25 @@
 
 (define (push x)
   (cond
-	((eq? x es) (op #x05))
-	((eq? x cs) (op #x0E))
-	((eq? x ss) (op #x15))
-	((eq? x ds) (op #x1E))
-	((eq? x fs) (op2 #xA0))
-	((eq? x gs) (op2 #xA8))
 	((reg? x) (op (+ #x50 (x))))
 	(else (error "push called with wrong arguments:" x))))
 
-(define (retn . x)
+(define (ret)
+  (op #xC3))
+
+(define (sub dst src)
   (cond
-	((null? x) (op #xC3))
-	((number? (car x)) (op #xC2))
-	(else (error "ret called with wrong arguments:" x))))
+	((and (reg? dst) (number? src) (< src 256))
+	 (op #x83)
+	 (modrm #x3 #x5 (dst))
+	 (byte src))
+	(else (error "sub called with wrong arguments:" src dst))))
 
 (with-output-to-file "test.image" (lambda ()
   (push ebp)
+  (mov ebp esp)
+  (sub esp #x8)
   (mov eax 42)
-  ;(mov ebp esp)
-  ;(leave)
-  (retn)))
+  (leave)
+  (ret)
+))
